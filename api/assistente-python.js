@@ -15,7 +15,7 @@ Mostre as equivalências mais importantes, quando aparecerem no código:
 Explique a lógica passo a passo, de forma curta e didática.`
 };
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-2.0-flash-lite';
 
 function applyCors(req, res) {
   const configuredOrigin = process.env.ALLOWED_ORIGIN;
