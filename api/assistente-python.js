@@ -104,14 +104,12 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  if (req.method === 'GET') {
-    return sendJson(req, res, 200, {
-      ok: false,
-      erro: 'Use POST.',
-      status: 'Função online. Se você está vendo isso no navegador, a rota existe.',
-      modelo: model
-    });
-  }
+if (req.method === 'GET') {
+  return sendJson(req, res, 200, {
+    teste: 'VERSAO NOVA 123',
+    modelo: model
+  });
+}
 
   if (req.method !== 'POST') {
     return sendJson(req, res, 405, {
