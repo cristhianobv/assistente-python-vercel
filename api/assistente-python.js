@@ -1,4 +1,4 @@
-const MODES = {
+fGEMINIconst MODES = {
   dica: 'Dê uma dica curta e progressiva. Não entregue o código completo.',
   erro: 'Explique o erro de forma simples, apontando a provável causa e como o aluno pode investigar.',
   revisao: 'Revise o código e indique melhorias didáticas, sem reescrever tudo para o aluno.',
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
       return sendJson(req, res, 400, { ok: false, erro: 'Código vazio.' });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     const modeInstruction = MODES[modo] || MODES.dica;
 
     const prompt = `Você é um assistente didático de Programação I para alunos iniciantes que estão migrando do Visualg para Python.
