@@ -175,15 +175,27 @@ if (req.method === 'GET') {
 
     const data = await response.json().catch(() => null);
 
-    if (!response.ok) {
-      const message = data?.error?.message || 'Erro ao chamar a API do Gemini.';
+if (!response.ok) {
+  const message = data?.error?.message || 'Erro ao chamar a API do Gemini.';
 
-      return sendJson(req, res, response.status, {
-        ok: false,
-        erro: message,
-        modelo: model
-      });
-    }
+  let friendlyMessage = message;
+
+  if (
+    message.includes('Quota exceeded') ||
+    message.includes('RESOURCE_EXHAUSTED') ||
+    message.includes('rate limit') ||
+    message.includes('limit: 0')
+  ) {
+    friendlyMessage =
+      '🤖 O assistente está temporariamente indisponível porque o limite da IA foi atingido. Você ainda pode executar programas, resolver desafios e testar exemplos normalmente. Tente novamente mais tarde.';
+  }
+
+  return sendJson(req, res, response.status, {
+    ok: false,
+    erro: friendlyMessage,
+    modelo: model
+  });
+}
 
     const finishReason = data?.candidates?.[0]?.finishReason || '';
     const resposta = data?.candidates?.[0]?.content?.parts
