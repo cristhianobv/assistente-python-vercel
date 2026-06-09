@@ -122,6 +122,16 @@ export default async function handler(req, res) {
 
     const model =  'gemini-2.0-flash';
     console.log("MODELO EM USO:", model);
+
+    if (req.method === 'GET') {
+  return sendJson(req, res, 200, {
+    ok: false,
+    erro: 'Use POST.',
+    status: 'Função online.',
+    modelo: model
+  });
+}
+    
     const prompt = montarPrompt({ modo, codigo, saida, erro, desafio });
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
