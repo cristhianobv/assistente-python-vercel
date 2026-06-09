@@ -15,9 +15,12 @@ Mostre as equivalências mais importantes, quando aparecerem no código:
 Explique a lógica passo a passo, de forma curta e didática.`
 };
 
+const MODEL = 'gemini-2.0-flash';
+
 function applyCors(req, res) {
   const configuredOrigin = process.env.ALLOWED_ORIGIN;
   const origin = req.headers.origin || '*';
+
   res.setHeader('Access-Control-Allow-Origin', configuredOrigin || origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -39,8 +42,15 @@ function cleanText(value, limit = 6000) {
 
 function parseBody(rawBody) {
   if (!rawBody) return {};
-  if (typeof rawBody === 'object' && rawBody !== null && !Buffer.isBuffer(rawBody)) return rawBody;
-  const text = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody);
+
+  if (typeof rawBody === 'object' && rawBody !== null && !Buffer.isBuffer(rawBody)) {
+    return rawBody;
+  }
+
+  const text = Buffer.isBuffer(rawBody)
+    ? rawBody.toString('utf8')
+    : String(rawBody);
+
   return JSON.parse(text || '{}');
 }
 
@@ -86,6 +96,9 @@ Responda em no máximo 12 linhas curtas.`;
 export default async function handler(req, res) {
   applyCors(req, res);
 
+  const model = MODEL;
+  console.log('MODELO EM USO:', model);
+
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     return res.end();
@@ -95,21 +108,32 @@ export default async function handler(req, res) {
     return sendJson(req, res, 200, {
       ok: false,
       erro: 'Use POST.',
-      status: 'Função online. Se você está vendo isso no navegador, a rota existe.'
+      status: 'Função online. Se você está vendo isso no navegador, a rota existe.',
+      modelo: model
     });
   }
 
   if (req.method !== 'POST') {
-    return sendJson(req, res, 405, { ok: false, erro: 'Use POST.' });
+    return sendJson(req, res, 405, {
+      ok: false,
+      erro: 'Use POST.',
+      modelo: model
+    });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
+
   if (!apiKey) {
-    return sendJson(req, res, 500, { ok: false, erro: 'GEMINI_API_KEY não configurada na Vercel.' });
+    return sendJson(req, res, 500, {
+      ok: false,
+      erro: 'GEMINI_API_KEY não configurada na Vercel.',
+      modelo: model
+    });
   }
 
   try {
     const body = parseBody(req.body);
+
     const modo = cleanText(body.modo, 40);
     const codigo = cleanText(body.codigo, 9000);
     const saida = cleanText(body.saida, 3000);
@@ -117,55 +141,76 @@ export default async function handler(req, res) {
     const desafio = cleanText(body.desafio, 1500);
 
     if (!codigo) {
-      return sendJson(req, res, 400, { ok: false, erro: 'Código vazio.' });
+      return sendJson(req, res, 400, {
+        ok: false,
+        erro: 'Código vazio.',
+        modelo: model
+      });
     }
 
-    const model =  'gemini-2.0-flash';
-    console.log("MODELO EM USO:", model);
-
-    if (req.method === 'GET') {
-  return sendJson(req, res, 200, {
-    ok: false,
-    erro: 'Use POST.',
-    status: 'Função online.',
-    modelo: model
-  });
-}
-    
     const prompt = montarPrompt({ modo, codigo, saida, erro, desafio });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.25,
-          topP: 0.9,
-          maxOutputTokens: 1000
-        }
-      })
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.25,
+            topP: 0.9,
+            maxOutputTokens: 1000
+          }
+        })
+      }
+    );
 
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
       const message = data?.error?.message || 'Erro ao chamar a API do Gemini.';
-      return sendJson(req, res, response.status, { ok: false, erro: message });
+
+      return sendJson(req, res, response.status, {
+        ok: false,
+        erro: message,
+        modelo: model
+      });
     }
 
     const finishReason = data?.candidates?.[0]?.finishReason || '';
-    const resposta = data?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('\n').trim();
+    const resposta = data?.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || '')
+      .join('\n')
+      .trim();
 
     if (!resposta) {
-      return sendJson(req, res, 502, { ok: false, erro: 'A IA não retornou texto.' });
+      return sendJson(req, res, 502, {
+        ok: false,
+        erro: 'A IA não retornou texto.',
+        modelo: model
+      });
     }
 
-    return sendJson(req, res, 200, { ok: true, resposta, finishReason });
+    return sendJson(req, res, 200, {
+      ok: true,
+      resposta,
+      finishReason,
+      modelo: model
+    });
   } catch (error) {
-    return sendJson(req, res, 500, { ok: false, erro: String(error?.message || error) });
+    return sendJson(req, res, 500, {
+      ok: false,
+      erro: String(error?.message || error),
+      modelo: model
+    });
   }
 }
