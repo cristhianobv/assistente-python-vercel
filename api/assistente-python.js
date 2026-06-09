@@ -1,8 +1,21 @@
-fGEMINIconst MODES = {
+const MODES = {
   dica: 'Dê uma dica curta e progressiva. Não entregue o código completo.',
   erro: 'Explique o erro de forma simples, apontando a provável causa e como o aluno pode investigar.',
   revisao: 'Revise o código e indique melhorias didáticas, sem reescrever tudo para o aluno.',
-  visualg: 'Compare a lógica do código Python com Visualg, usando linguagem simples.'
+  visualg: `Explique este código como se o aluno estivesse acostumado com Visualg.
+Sempre que possível, mostre equivalências entre Visualg e Python:
+- escreva / escreval -> print()
+- leia -> input()
+- se -> if
+- senao -> else
+- enquanto -> while
+- fimse / fimenquanto -> indentação em Python
+- <- -> =
+- = em comparação no Visualg -> == em Python
+- mod ou resto -> %
+Explique a lógica passo a passo em linguagem simples.
+Não traduza o programa inteiro automaticamente, a menos que seja um trecho muito pequeno.
+Priorize mostrar como a ideia que o aluno já conhece em Visualg aparece no Python.`
 };
 
 function applyCors(req, res) {
@@ -71,7 +84,7 @@ export default async function handler(req, res) {
       return sendJson(req, res, 400, { ok: false, erro: 'Código vazio.' });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const modeInstruction = MODES[modo] || MODES.dica;
 
     const prompt = `Você é um assistente didático de Programação I para alunos iniciantes que estão migrando do Visualg para Python.
@@ -85,7 +98,8 @@ Regras obrigatórias:
 - Se houver erro, explique a causa provável em linguagem simples.
 - Se comparar com Visualg, use equivalências como escreva -> print, leia -> input, enquanto -> while, se -> if, senao -> else.
 
-Tipo de ajuda solicitado: ${modeInstruction}
+Tipo de ajuda solicitado:
+${modeInstruction}
 
 Desafio atual, se houver:
 ${desafio || '(não informado)'}
