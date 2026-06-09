@@ -3,19 +3,16 @@ const MODES = {
   erro: 'Explique o erro de forma simples, apontando a provável causa e como o aluno pode investigar.',
   revisao: 'Revise o código e indique melhorias didáticas, sem reescrever tudo para o aluno.',
   visualg: `Explique este código como se o aluno estivesse acostumado com Visualg.
-Sempre que possível, mostre equivalências entre Visualg e Python:
-- escreva / escreval -> print()
+Mostre as equivalências mais importantes, quando aparecerem no código:
+- escreva ou escreval -> print()
 - leia -> input()
 - se -> if
 - senao -> else
 - enquanto -> while
-- fimse / fimenquanto -> indentação em Python
 - <- -> =
-- = em comparação no Visualg -> == em Python
-- mod ou resto -> %
-Explique a lógica passo a passo em linguagem simples.
-Não traduza o programa inteiro automaticamente, a menos que seja um trecho muito pequeno.
-Priorize mostrar como a ideia que o aluno já conhece em Visualg aparece no Python.`
+- mod/resto -> %
+- fimse/fimenquanto -> em Python o bloco é definido pela indentação.
+Explique a lógica passo a passo, de forma curta e didática.`
 };
 
 function applyCors(req, res) {
@@ -45,6 +42,45 @@ function parseBody(rawBody) {
   if (typeof rawBody === 'object' && rawBody !== null && !Buffer.isBuffer(rawBody)) return rawBody;
   const text = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody);
   return JSON.parse(text || '{}');
+}
+
+function montarPrompt({ modo, codigo, saida, erro, desafio }) {
+  const modeInstruction = MODES[modo] || MODES.dica;
+
+  return `Você é um assistente didático de Programação I para alunos iniciantes que estão migrando do Visualg para Python.
+
+Regras obrigatórias:
+- Responda em português do Brasil.
+- Seja claro, encorajador e didático.
+- Não entregue a solução completa pronta, a menos que o aluno já tenha feito quase tudo certo e a correção seja mínima.
+- Priorize pistas, perguntas orientadoras e explicações curtas.
+- Foque em conceitos iniciais: print, input, int, float, if, else, while, contador, acumulador, resto/módulo, indentação e variáveis.
+- Se houver erro, explique a causa provável em linguagem simples.
+- Se comparar com Visualg, use equivalências como escreva -> print, leia -> input, enquanto -> while, se -> if, senao -> else.
+- Termine a resposta com uma frase completa. Não deixe a última frase incompleta.
+
+Tipo de ajuda solicitado:
+${modeInstruction}
+
+Desafio atual, se houver:
+${desafio || '(não informado)'}
+
+Código do aluno:
+\`\`\`python
+${codigo}
+\`\`\`
+
+Saída ou mensagem exibida:
+\`\`\`
+${saida || '(sem saída informada)'}
+\`\`\`
+
+Erro capturado, se houver:
+\`\`\`
+${erro || '(sem erro informado)'}
+\`\`\`
+
+Responda em no máximo 12 linhas curtas.`;
 }
 
 export default async function handler(req, res) {
@@ -84,42 +120,8 @@ export default async function handler(req, res) {
       return sendJson(req, res, 400, { ok: false, erro: 'Código vazio.' });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const modeInstruction = MODES[modo] || MODES.dica;
-
-    const prompt = `Você é um assistente didático de Programação I para alunos iniciantes que estão migrando do Visualg para Python.
-
-Regras obrigatórias:
-- Responda em português do Brasil.
-- Seja breve, claro e encorajador.
-- Não entregue a solução completa pronta, a menos que o aluno já tenha feito quase tudo certo e a correção seja mínima.
-- Priorize pistas, perguntas orientadoras e explicações curtas.
-- Foque em conceitos iniciais: print, input, int, float, if, else, while, contador, acumulador, resto/módulo, indentação e variáveis.
-- Se houver erro, explique a causa provável em linguagem simples.
-- Se comparar com Visualg, use equivalências como escreva -> print, leia -> input, enquanto -> while, se -> if, senao -> else.
-
-Tipo de ajuda solicitado:
-${modeInstruction}
-
-Desafio atual, se houver:
-${desafio || '(não informado)'}
-
-Código do aluno:
-\`\`\`python
-${codigo}
-\`\`\`
-
-Saída ou mensagem exibida:
-\`\`\`
-${saida || '(sem saída informada)'}
-\`\`\`
-
-Erro capturado, se houver:
-\`\`\`
-${erro || '(sem erro informado)'}
-\`\`\`
-
-Responda com no máximo 8 linhas.`;
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const prompt = montarPrompt({ modo, codigo, saida, erro, desafio });
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
@@ -130,9 +132,9 @@ Responda com no máximo 8 linhas.`;
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.35,
+          temperature: 0.25,
           topP: 0.9,
-          maxOutputTokens: 500
+          maxOutputTokens: 1000
         }
       })
     });
@@ -144,13 +146,14 @@ Responda com no máximo 8 linhas.`;
       return sendJson(req, res, response.status, { ok: false, erro: message });
     }
 
+    const finishReason = data?.candidates?.[0]?.finishReason || '';
     const resposta = data?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('\n').trim();
 
     if (!resposta) {
       return sendJson(req, res, 502, { ok: false, erro: 'A IA não retornou texto.' });
     }
 
-    return sendJson(req, res, 200, { ok: true, resposta });
+    return sendJson(req, res, 200, { ok: true, resposta, finishReason });
   } catch (error) {
     return sendJson(req, res, 500, { ok: false, erro: String(error?.message || error) });
   }
