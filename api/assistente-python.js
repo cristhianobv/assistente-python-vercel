@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       return sendJson(req, res, 400, { ok: false, erro: 'Código vazio.' });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const model =  'gemini-2.0-flash';
     const prompt = montarPrompt({ modo, codigo, saida, erro, desafio });
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
