@@ -106,7 +106,9 @@ export default async function handler(req, res) {
 
 if (req.method === 'GET') {
   return sendJson(req, res, 200, {
-    teste: 'VERSAO NOVA 123',
+    ok: false,
+    erro: 'Use POST.',
+    status: 'Função online.',
     modelo: model
   });
 }
