@@ -97,7 +97,6 @@ export default async function handler(req, res) {
   applyCors(req, res);
 
   const model = MODEL;
-  console.log('MODELO EM USO:', model);
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
